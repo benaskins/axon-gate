@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deploy {{.Approval.Status}}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; padding: 1.5rem; max-width: 480px; margin: 0 auto; }
+  h2 { margin-bottom: 1rem; font-size: 1.25rem; color: #fff; }
+  .status { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; }
+  .approved { color: #22c55e; }
+  .denied { color: #ef4444; }
+  dl { margin-bottom: 1rem; }
+  dt { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-top: 0.75rem; }
+  dd { font-size: 1rem; color: #e0e0e0; margin-top: 0.25rem; }
+</style>
+</head>
+<body>
+  <h2>Deploy {{.Approval.Service}}</h2>
+  <p class="status {{if eq (printf "%s" .Approval.Status) "approved"}}approved{{else}}denied{{end}}">
+    {{if eq (printf "%s" .Approval.Status) "approved"}}Approved{{else}}Denied{{end}}
+  </p>
+  <dl>
+    <dt>Commit</dt><dd>{{.Approval.Commit}}</dd>
+    <dt>Resolved by</dt><dd>{{.Approval.ResolvedBy}}</dd>
+  </dl>
+</body>
+</html>
