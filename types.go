@@ -21,6 +21,7 @@ type Approval struct {
 	Token      string         `json:"-"`
 	Status     ApprovalStatus `json:"status"`
 	CreatedAt  time.Time      `json:"created_at"`
+	ExpiresAt  time.Time      `json:"expires_at"`
 	ResolvedAt *time.Time     `json:"resolved_at"`
 	ResolvedBy string         `json:"resolved_by,omitempty"`
 }

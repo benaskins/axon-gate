@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	gate "github.com/benaskins/axon-gate"
 	"github.com/benaskins/axon-gate/gatetest"
@@ -274,5 +275,93 @@ func TestProcessApproval_WrongUser(t *testing.T) {
 	got := store.Get(approval.ID)
 	if got.Status != gate.StatusPending {
 		t.Errorf("expected pending, got %s", got.Status)
+	}
+}
+
+func TestShowApprovalPage_Expired(t *testing.T) {
+	h, store := newTestHandler(t)
+
+	approval, _ := store.Create(gate.ApprovalRequest{
+		Service:  "chat",
+		Commit:   "abc1234",
+		Username: "benaskins",
+	})
+
+	// Set expiry to the past
+	approval.ExpiresAt = time.Now().Add(-1 * time.Hour)
+
+	req := httptest.NewRequest("GET", "/approve/"+approval.ID+"?token="+approval.Token, nil)
+	req.SetPathValue("id", approval.ID)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "valid-session"})
+	w := httptest.NewRecorder()
+
+	h.ShowApprovalPage(w, req)
+
+	if w.Code != http.StatusGone {
+		t.Errorf("expected 410, got %d", w.Code)
+	}
+}
+
+func TestProcessApproval_Expired(t *testing.T) {
+	h, store := newTestHandler(t)
+
+	approval, _ := store.Create(gate.ApprovalRequest{
+		Service:  "chat",
+		Commit:   "abc1234",
+		Username: "benaskins",
+	})
+
+	// Set expiry to the past
+	approval.ExpiresAt = time.Now().Add(-1 * time.Hour)
+
+	body := "token=" + approval.Token + "&action=approve"
+	req := httptest.NewRequest("POST", "/approve/"+approval.ID, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", approval.ID)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "valid-session"})
+	w := httptest.NewRecorder()
+
+	h.ProcessApproval(w, req)
+
+	if w.Code != http.StatusGone {
+		t.Errorf("expected 410, got %d", w.Code)
+	}
+
+	// Should still be pending
+	got := store.Get(approval.ID)
+	if got.Status != gate.StatusPending {
+		t.Errorf("expected pending, got %s", got.Status)
+	}
+}
+
+func TestProcessApproval_AlreadyResolved(t *testing.T) {
+	h, store := newTestHandler(t)
+
+	approval, _ := store.Create(gate.ApprovalRequest{
+		Service:  "chat",
+		Commit:   "abc1234",
+		Username: "benaskins",
+	})
+
+	// Resolve the approval first
+	store.Resolve(approval.ID, gate.StatusApproved, "benaskins")
+
+	body := "token=" + approval.Token + "&action=deny"
+	req := httptest.NewRequest("POST", "/approve/"+approval.ID, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", approval.ID)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "valid-session"})
+	w := httptest.NewRecorder()
+
+	h.ProcessApproval(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 (resolved page), got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Should still be approved (not changed to denied)
+	got := store.Get(approval.ID)
+	if got.Status != gate.StatusApproved {
+		t.Errorf("expected approved, got %s", got.Status)
 	}
 }

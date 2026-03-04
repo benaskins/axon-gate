@@ -25,8 +25,12 @@ func (s *MemoryApprovalStore) Create(req gate.ApprovalRequest) (*gate.Approval, 
 		return nil, fmt.Errorf("generate token: %w", err)
 	}
 
-	id := gate.GenerateID()
+	id, err := gate.GenerateID()
+	if err != nil {
+		return nil, fmt.Errorf("generate id: %w", err)
+	}
 
+	now := time.Now()
 	approval := &gate.Approval{
 		ID:        id,
 		Service:   req.Service,
@@ -37,7 +41,8 @@ func (s *MemoryApprovalStore) Create(req gate.ApprovalRequest) (*gate.Approval, 
 		Username:  req.Username,
 		Token:     token,
 		Status:    gate.StatusPending,
-		CreatedAt: time.Now(),
+		CreatedAt: now,
+		ExpiresAt: now.Add(1 * time.Hour),
 	}
 
 	s.mu.Lock()

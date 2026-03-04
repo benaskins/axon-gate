@@ -1,12 +1,14 @@
 package gate
 
 import (
+	"crypto/subtle"
 	"embed"
 	"encoding/json"
 	"html/template"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/benaskins/axon"
 )
@@ -34,6 +36,7 @@ func NewHandler(store ApprovalStore, signal *SignalClient, authClient *axon.Auth
 
 // CreateApproval handles POST /api/approvals — create approval, send Signal message.
 func (h *Handler) CreateApproval(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB
 	var req ApprovalRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		axon.WriteError(w, http.StatusBadRequest, "invalid request body")
@@ -87,6 +90,7 @@ func (h *Handler) GetApproval(w http.ResponseWriter, r *http.Request) {
 
 // SendNotification handles POST /api/notifications — send informational Signal message.
 func (h *Handler) SendNotification(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB
 	var req struct {
 		Message string `json:"message"`
 	}
@@ -120,8 +124,13 @@ func (h *Handler) ShowApprovalPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if token != approval.Token {
+	if subtle.ConstantTimeCompare([]byte(token), []byte(approval.Token)) != 1 {
 		h.renderError(w, http.StatusForbidden, "Invalid approval token")
+		return
+	}
+
+	if time.Now().After(approval.ExpiresAt) {
+		h.renderError(w, http.StatusGone, "Approval expired")
 		return
 	}
 
@@ -168,8 +177,13 @@ func (h *Handler) ProcessApproval(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if token != approval.Token {
+	if subtle.ConstantTimeCompare([]byte(token), []byte(approval.Token)) != 1 {
 		h.renderError(w, http.StatusForbidden, "Invalid approval token")
+		return
+	}
+
+	if time.Now().After(approval.ExpiresAt) {
+		h.renderError(w, http.StatusGone, "Approval expired")
 		return
 	}
 

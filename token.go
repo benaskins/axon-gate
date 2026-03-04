@@ -7,10 +7,12 @@ import (
 	"time"
 )
 
-func GenerateID() string {
+func GenerateID() (string, error) {
 	b := make([]byte, 6)
-	rand.Read(b)
-	return fmt.Sprintf("ap_%d_%s", time.Now().Unix(), base64.RawURLEncoding.EncodeToString(b))
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("ap_%d_%s", time.Now().Unix(), base64.RawURLEncoding.EncodeToString(b)), nil
 }
 
 func GenerateToken() (string, error) {
