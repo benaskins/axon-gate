@@ -153,10 +153,13 @@ func (h *Handler) ShowApprovalPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	templates.ExecuteTemplate(w, "approve.html", map[string]any{
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := templates.ExecuteTemplate(w, "approve.html", map[string]any{
 		"Approval": approval,
 		"Token":    token,
-	})
+	}); err != nil {
+		slog.Error("failed to render approval page", "error", err)
+	}
 }
 
 // ProcessApproval handles POST /approve/{id} — process approval decision.
@@ -248,14 +251,20 @@ func (h *Handler) redirectToLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) renderError(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
-	templates.ExecuteTemplate(w, "error.html", map[string]string{
+	if err := templates.ExecuteTemplate(w, "error.html", map[string]string{
 		"Message": message,
-	})
+	}); err != nil {
+		slog.Error("failed to render error page", "error", err)
+	}
 }
 
 func (h *Handler) renderResolved(w http.ResponseWriter, approval *Approval) {
-	templates.ExecuteTemplate(w, "resolved.html", map[string]any{
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := templates.ExecuteTemplate(w, "resolved.html", map[string]any{
 		"Approval": approval,
-	})
+	}); err != nil {
+		slog.Error("failed to render resolved page", "error", err)
+	}
 }
