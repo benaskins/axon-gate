@@ -42,7 +42,7 @@ func newTestHandler(t *testing.T) (*gate.Handler, *gatetest.MemoryApprovalStore)
 	authClient := axon.NewAuthClientPlain(authServer.URL)
 	t.Cleanup(authClient.Close)
 
-	h := gate.NewHandler(store, signal, authClient, "http://deploy-gate.studio.internal")
+	h := gate.NewHandler(store, signal, authClient, "http://deploy-gate.studio.internal", "https://auth.studio.internal/login")
 	return h, store
 }
 

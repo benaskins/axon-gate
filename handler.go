@@ -23,14 +23,16 @@ type Handler struct {
 	signal     *SignalClient
 	authClient *axon.AuthClient
 	baseURL    string
+	loginURL   string
 }
 
-func NewHandler(store ApprovalStore, signal *SignalClient, authClient *axon.AuthClient, baseURL string) *Handler {
+func NewHandler(store ApprovalStore, signal *SignalClient, authClient *axon.AuthClient, baseURL, loginURL string) *Handler {
 	return &Handler{
 		store:      store,
 		signal:     signal,
 		authClient: authClient,
 		baseURL:    baseURL,
+		loginURL:   loginURL,
 	}
 }
 
@@ -246,8 +248,7 @@ func (h *Handler) validateSession(r *http.Request) (*axon.SessionInfo, error) {
 
 func (h *Handler) redirectToLogin(w http.ResponseWriter, r *http.Request) {
 	currentURL := h.baseURL + r.URL.RequestURI()
-	loginURL := "https://auth.studio.internal/login?redirect=" + url.QueryEscape(currentURL)
-	http.Redirect(w, r, loginURL, http.StatusFound)
+	http.Redirect(w, r, h.loginURL+"?redirect="+url.QueryEscape(currentURL), http.StatusFound)
 }
 
 func (h *Handler) renderError(w http.ResponseWriter, status int, message string) {
