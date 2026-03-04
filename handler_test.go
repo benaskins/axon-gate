@@ -42,7 +42,7 @@ func newTestHandler(t *testing.T) (*gate.Handler, *gatetest.MemoryApprovalStore)
 	authClient := axon.NewAuthClientPlain(authServer.URL)
 	t.Cleanup(authClient.Close)
 
-	h := gate.NewHandler(store, signal, authClient, "http://deploy-gate.studio.internal", "https://auth.studio.internal/login")
+	h := gate.NewHandler(store, signal, authClient, "http://deploy-gate.example.com", "https://auth.example.com/login")
 	return h, store
 }
 
@@ -181,7 +181,7 @@ func TestShowApprovalPage_NoSession_RedirectsToLogin(t *testing.T) {
 	if location == "" {
 		t.Fatal("expected Location header")
 	}
-	if !strings.Contains(location, "auth.studio.internal/login") {
+	if !strings.Contains(location, "auth.example.com/login") {
 		t.Errorf("expected redirect to auth login, got %s", location)
 	}
 	if !strings.Contains(location, "redirect=") {
