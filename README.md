@@ -1,6 +1,6 @@
 # axon-gate
 
-A deploy approval gate service. Creates time-limited approval requests, notifies operators via Signal, and serves a web UI for reviewing and approving deployments.
+A deploy approval gate service. Creates time-limited approval requests, notifies operators via Signal, and serves a web UI for reviewing and approving deployments. Part of [lamina](https://github.com/benaskins/lamina) — each axon package can be used independently.
 
 ## Install
 
