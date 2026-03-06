@@ -161,6 +161,8 @@ func (h *Handler) ShowApprovalPage(w http.ResponseWriter, r *http.Request) {
 		"Token":    token,
 	}); err != nil {
 		slog.Error("failed to render approval page", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -258,6 +260,8 @@ func (h *Handler) renderError(w http.ResponseWriter, status int, message string)
 		"Message": message,
 	}); err != nil {
 		slog.Error("failed to render error page", "error", err)
+		// Status header already sent; write plain text fallback
+		_, _ = w.Write([]byte(message))
 	}
 }
 
@@ -267,5 +271,6 @@ func (h *Handler) renderResolved(w http.ResponseWriter, approval *Approval) {
 		"Approval": approval,
 	}); err != nil {
 		slog.Error("failed to render resolved page", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}
 }
