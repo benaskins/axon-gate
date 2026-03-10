@@ -55,7 +55,13 @@ func (s *MemoryApprovalStore) Create(req gate.ApprovalRequest) (*gate.Approval, 
 func (s *MemoryApprovalStore) Get(id string) *gate.Approval {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.approvals[id]
+	a, ok := s.approvals[id]
+	if !ok {
+		return nil
+	}
+	// Return a copy to prevent data races from concurrent access
+	copy := *a
+	return &copy
 }
 
 func (s *MemoryApprovalStore) Resolve(id string, status gate.ApprovalStatus, resolvedBy string) bool {

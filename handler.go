@@ -79,6 +79,7 @@ func (h *Handler) CreateApproval(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetApproval handles GET /api/approvals/{id} — poll approval status.
+// Returns only the status to avoid leaking metadata to unauthenticated callers.
 func (h *Handler) GetApproval(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	approval := h.store.Get(id)
@@ -87,7 +88,10 @@ func (h *Handler) GetApproval(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	axon.WriteJSON(w, http.StatusOK, approval)
+	axon.WriteJSON(w, http.StatusOK, map[string]string{
+		"id":     approval.ID,
+		"status": string(approval.Status),
+	})
 }
 
 // SendNotification handles POST /api/notifications — send informational Signal message.
