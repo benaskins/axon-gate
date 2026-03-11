@@ -1,6 +1,8 @@
 package gate_test
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	gate "github.com/benaskins/axon-gate"
@@ -8,9 +10,10 @@ import (
 )
 
 func TestApprovalStore_CreateAndGet(t *testing.T) {
+	ctx := context.Background()
 	store := gatetest.NewMemoryApprovalStore()
 
-	approval, err := store.Create(gate.ApprovalRequest{
+	approval, err := store.Create(ctx, gate.ApprovalRequest{
 		Service:  "chat",
 		Commit:   "abc1234",
 		Branch:   "task/fix-login-123",
@@ -35,9 +38,9 @@ func TestApprovalStore_CreateAndGet(t *testing.T) {
 		t.Errorf("expected chat, got %s", approval.Service)
 	}
 
-	got := store.Get(approval.ID)
-	if got == nil {
-		t.Fatal("Get returned nil")
+	got, err := store.Get(ctx, approval.ID)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
 	}
 	if got.ID != approval.ID {
 		t.Errorf("expected %s, got %s", approval.ID, got.ID)
@@ -46,25 +49,26 @@ func TestApprovalStore_CreateAndGet(t *testing.T) {
 
 func TestApprovalStore_GetNotFound(t *testing.T) {
 	store := gatetest.NewMemoryApprovalStore()
-	if got := store.Get("nonexistent"); got != nil {
-		t.Errorf("expected nil, got %+v", got)
+	_, err := store.Get(context.Background(), "nonexistent")
+	if !errors.Is(err, gate.ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }
 
 func TestApprovalStore_Resolve(t *testing.T) {
+	ctx := context.Background()
 	store := gatetest.NewMemoryApprovalStore()
 
-	approval, _ := store.Create(gate.ApprovalRequest{
+	approval, _ := store.Create(ctx, gate.ApprovalRequest{
 		Service: "chat",
 		Commit:  "abc1234",
 	})
 
-	ok := store.Resolve(approval.ID, gate.StatusApproved, "benaskins")
-	if !ok {
-		t.Fatal("Resolve returned false")
+	if err := store.Resolve(ctx, approval.ID, gate.StatusApproved, "benaskins"); err != nil {
+		t.Fatalf("Resolve failed: %v", err)
 	}
 
-	got := store.Get(approval.ID)
+	got, _ := store.Get(ctx, approval.ID)
 	if got.Status != gate.StatusApproved {
 		t.Errorf("expected approved, got %s", got.Status)
 	}
@@ -77,23 +81,24 @@ func TestApprovalStore_Resolve(t *testing.T) {
 }
 
 func TestApprovalStore_ResolveAlreadyResolved(t *testing.T) {
+	ctx := context.Background()
 	store := gatetest.NewMemoryApprovalStore()
 
-	approval, _ := store.Create(gate.ApprovalRequest{
+	approval, _ := store.Create(ctx, gate.ApprovalRequest{
 		Service: "chat",
 		Commit:  "abc1234",
 	})
 
-	store.Resolve(approval.ID, gate.StatusApproved, "benaskins")
+	store.Resolve(ctx, approval.ID, gate.StatusApproved, "benaskins")
 
 	// Second resolve should fail
-	ok := store.Resolve(approval.ID, gate.StatusDenied, "other")
-	if ok {
-		t.Error("expected false for already-resolved approval")
+	err := store.Resolve(ctx, approval.ID, gate.StatusDenied, "other")
+	if !errors.Is(err, gate.ErrAlreadyResolved) {
+		t.Errorf("expected ErrAlreadyResolved, got %v", err)
 	}
 
 	// Status should still be approved
-	got := store.Get(approval.ID)
+	got, _ := store.Get(ctx, approval.ID)
 	if got.Status != gate.StatusApproved {
 		t.Errorf("expected approved, got %s", got.Status)
 	}
@@ -101,8 +106,8 @@ func TestApprovalStore_ResolveAlreadyResolved(t *testing.T) {
 
 func TestApprovalStore_ResolveNotFound(t *testing.T) {
 	store := gatetest.NewMemoryApprovalStore()
-	ok := store.Resolve("nonexistent", gate.StatusApproved, "benaskins")
-	if ok {
-		t.Error("expected false for nonexistent approval")
+	err := store.Resolve(context.Background(), "nonexistent", gate.StatusApproved, "benaskins")
+	if !errors.Is(err, gate.ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }

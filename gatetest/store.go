@@ -1,6 +1,7 @@
 package gatetest
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -19,7 +20,7 @@ func NewMemoryApprovalStore() *MemoryApprovalStore {
 	}
 }
 
-func (s *MemoryApprovalStore) Create(req gate.ApprovalRequest) (*gate.Approval, error) {
+func (s *MemoryApprovalStore) Create(_ context.Context, req gate.ApprovalRequest) (*gate.Approval, error) {
 	token, err := gate.GenerateToken()
 	if err != nil {
 		return nil, fmt.Errorf("generate token: %w", err)
@@ -52,33 +53,33 @@ func (s *MemoryApprovalStore) Create(req gate.ApprovalRequest) (*gate.Approval, 
 	return approval, nil
 }
 
-func (s *MemoryApprovalStore) Get(id string) *gate.Approval {
+func (s *MemoryApprovalStore) Get(_ context.Context, id string) (*gate.Approval, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	a, ok := s.approvals[id]
 	if !ok {
-		return nil
+		return nil, gate.ErrNotFound
 	}
 	// Return a copy to prevent data races from concurrent access
 	copy := *a
-	return &copy
+	return &copy, nil
 }
 
-func (s *MemoryApprovalStore) Resolve(id string, status gate.ApprovalStatus, resolvedBy string) bool {
+func (s *MemoryApprovalStore) Resolve(_ context.Context, id string, status gate.ApprovalStatus, resolvedBy string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	a, ok := s.approvals[id]
 	if !ok {
-		return false
+		return gate.ErrNotFound
 	}
 	if a.Status != gate.StatusPending {
-		return false
+		return gate.ErrAlreadyResolved
 	}
 
 	now := time.Now()
 	a.Status = status
 	a.ResolvedAt = &now
 	a.ResolvedBy = resolvedBy
-	return true
+	return nil
 }

@@ -1,6 +1,7 @@
 package gate_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -8,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/benaskins/axon"
 	gate "github.com/benaskins/axon-gate"
 	"github.com/benaskins/axon-gate/gatetest"
-	"github.com/benaskins/axon"
 )
 
 func newTestHandler(t *testing.T) (*gate.Handler, *gatetest.MemoryApprovalStore) {
@@ -86,9 +87,10 @@ func TestCreateApproval_MissingFields(t *testing.T) {
 
 func TestGetApproval(t *testing.T) {
 	h, store := newTestHandler(t)
+	ctx := context.Background()
 
 	// Create an approval first
-	approval, _ := store.Create(gate.ApprovalRequest{
+	approval, _ := store.Create(ctx, gate.ApprovalRequest{
 		Service: "chat",
 		Commit:  "abc1234",
 	})
@@ -140,8 +142,9 @@ func TestSendNotification(t *testing.T) {
 
 func TestShowApprovalPage_InvalidToken(t *testing.T) {
 	h, store := newTestHandler(t)
+	ctx := context.Background()
 
-	approval, _ := store.Create(gate.ApprovalRequest{
+	approval, _ := store.Create(ctx, gate.ApprovalRequest{
 		Service:  "chat",
 		Commit:   "abc1234",
 		Username: "benaskins",
@@ -161,8 +164,9 @@ func TestShowApprovalPage_InvalidToken(t *testing.T) {
 
 func TestShowApprovalPage_NoSession_RedirectsToLogin(t *testing.T) {
 	h, store := newTestHandler(t)
+	ctx := context.Background()
 
-	approval, _ := store.Create(gate.ApprovalRequest{
+	approval, _ := store.Create(ctx, gate.ApprovalRequest{
 		Service:  "chat",
 		Commit:   "abc1234",
 		Username: "benaskins",
@@ -191,8 +195,9 @@ func TestShowApprovalPage_NoSession_RedirectsToLogin(t *testing.T) {
 
 func TestProcessApproval_Approve(t *testing.T) {
 	h, store := newTestHandler(t)
+	ctx := context.Background()
 
-	approval, _ := store.Create(gate.ApprovalRequest{
+	approval, _ := store.Create(ctx, gate.ApprovalRequest{
 		Service:  "chat",
 		Commit:   "abc1234",
 		Username: "benaskins",
@@ -211,7 +216,7 @@ func TestProcessApproval_Approve(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	got := store.Get(approval.ID)
+	got, _ := store.Get(ctx, approval.ID)
 	if got.Status != gate.StatusApproved {
 		t.Errorf("expected approved, got %s", got.Status)
 	}
@@ -222,8 +227,9 @@ func TestProcessApproval_Approve(t *testing.T) {
 
 func TestProcessApproval_Deny(t *testing.T) {
 	h, store := newTestHandler(t)
+	ctx := context.Background()
 
-	approval, _ := store.Create(gate.ApprovalRequest{
+	approval, _ := store.Create(ctx, gate.ApprovalRequest{
 		Service:  "chat",
 		Commit:   "abc1234",
 		Username: "benaskins",
@@ -242,7 +248,7 @@ func TestProcessApproval_Deny(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	got := store.Get(approval.ID)
+	got, _ := store.Get(ctx, approval.ID)
 	if got.Status != gate.StatusDenied {
 		t.Errorf("expected denied, got %s", got.Status)
 	}
@@ -250,9 +256,10 @@ func TestProcessApproval_Deny(t *testing.T) {
 
 func TestProcessApproval_WrongUser(t *testing.T) {
 	h, store := newTestHandler(t)
+	ctx := context.Background()
 
 	// Approval belongs to a different user
-	approval, _ := store.Create(gate.ApprovalRequest{
+	approval, _ := store.Create(ctx, gate.ApprovalRequest{
 		Service:  "chat",
 		Commit:   "abc1234",
 		Username: "other_user",
@@ -272,7 +279,7 @@ func TestProcessApproval_WrongUser(t *testing.T) {
 	}
 
 	// Should still be pending
-	got := store.Get(approval.ID)
+	got, _ := store.Get(ctx, approval.ID)
 	if got.Status != gate.StatusPending {
 		t.Errorf("expected pending, got %s", got.Status)
 	}
@@ -280,8 +287,9 @@ func TestProcessApproval_WrongUser(t *testing.T) {
 
 func TestShowApprovalPage_Expired(t *testing.T) {
 	h, store := newTestHandler(t)
+	ctx := context.Background()
 
-	approval, _ := store.Create(gate.ApprovalRequest{
+	approval, _ := store.Create(ctx, gate.ApprovalRequest{
 		Service:  "chat",
 		Commit:   "abc1234",
 		Username: "benaskins",
@@ -304,8 +312,9 @@ func TestShowApprovalPage_Expired(t *testing.T) {
 
 func TestProcessApproval_Expired(t *testing.T) {
 	h, store := newTestHandler(t)
+	ctx := context.Background()
 
-	approval, _ := store.Create(gate.ApprovalRequest{
+	approval, _ := store.Create(ctx, gate.ApprovalRequest{
 		Service:  "chat",
 		Commit:   "abc1234",
 		Username: "benaskins",
@@ -328,7 +337,7 @@ func TestProcessApproval_Expired(t *testing.T) {
 	}
 
 	// Should still be pending
-	got := store.Get(approval.ID)
+	got, _ := store.Get(ctx, approval.ID)
 	if got.Status != gate.StatusPending {
 		t.Errorf("expected pending, got %s", got.Status)
 	}
@@ -336,15 +345,16 @@ func TestProcessApproval_Expired(t *testing.T) {
 
 func TestProcessApproval_AlreadyResolved(t *testing.T) {
 	h, store := newTestHandler(t)
+	ctx := context.Background()
 
-	approval, _ := store.Create(gate.ApprovalRequest{
+	approval, _ := store.Create(ctx, gate.ApprovalRequest{
 		Service:  "chat",
 		Commit:   "abc1234",
 		Username: "benaskins",
 	})
 
 	// Resolve the approval first
-	store.Resolve(approval.ID, gate.StatusApproved, "benaskins")
+	store.Resolve(ctx, approval.ID, gate.StatusApproved, "benaskins")
 
 	body := "token=" + approval.Token + "&action=deny"
 	req := httptest.NewRequest("POST", "/approve/"+approval.ID, strings.NewReader(body))
@@ -360,7 +370,7 @@ func TestProcessApproval_AlreadyResolved(t *testing.T) {
 	}
 
 	// Should still be approved (not changed to denied)
-	got := store.Get(approval.ID)
+	got, _ := store.Get(ctx, approval.ID)
 	if got.Status != gate.StatusApproved {
 		t.Errorf("expected approved, got %s", got.Status)
 	}

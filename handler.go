@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"embed"
 	"encoding/json"
+	"errors"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -50,7 +51,7 @@ func (h *Handler) CreateApproval(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	approval, err := h.store.Create(req)
+	approval, err := h.store.Create(r.Context(), req)
 	if err != nil {
 		slog.Error("failed to create approval", "error", err)
 		axon.WriteError(w, http.StatusInternalServerError, "failed to create approval")
@@ -82,9 +83,14 @@ func (h *Handler) CreateApproval(w http.ResponseWriter, r *http.Request) {
 // Returns only the status to avoid leaking metadata to unauthenticated callers.
 func (h *Handler) GetApproval(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	approval := h.store.Get(id)
-	if approval == nil {
-		axon.WriteError(w, http.StatusNotFound, "approval not found")
+	approval, err := h.store.Get(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			axon.WriteError(w, http.StatusNotFound, "approval not found")
+			return
+		}
+		slog.Error("failed to get approval", "error", err, "id", id)
+		axon.WriteError(w, http.StatusInternalServerError, "failed to get approval")
 		return
 	}
 
@@ -124,9 +130,14 @@ func (h *Handler) ShowApprovalPage(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	token := r.URL.Query().Get("token")
 
-	approval := h.store.Get(id)
-	if approval == nil {
-		h.renderError(w, http.StatusNotFound, "Approval not found")
+	approval, err := h.store.Get(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			h.renderError(w, http.StatusNotFound, "Approval not found")
+			return
+		}
+		slog.Error("failed to get approval", "error", err, "id", id)
+		h.renderError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
@@ -182,9 +193,14 @@ func (h *Handler) ProcessApproval(w http.ResponseWriter, r *http.Request) {
 	token := r.FormValue("token")
 	action := r.FormValue("action")
 
-	approval := h.store.Get(id)
-	if approval == nil {
-		h.renderError(w, http.StatusNotFound, "Approval not found")
+	approval, err := h.store.Get(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			h.renderError(w, http.StatusNotFound, "Approval not found")
+			return
+		}
+		slog.Error("failed to get approval", "error", err, "id", id)
+		h.renderError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
@@ -230,8 +246,13 @@ func (h *Handler) ProcessApproval(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !h.store.Resolve(id, status, username) {
-		h.renderError(w, http.StatusConflict, "Approval already resolved")
+	if err := h.store.Resolve(r.Context(), id, status, username); err != nil {
+		if errors.Is(err, ErrAlreadyResolved) {
+			h.renderError(w, http.StatusConflict, "Approval already resolved")
+			return
+		}
+		slog.Error("failed to resolve approval", "error", err, "id", id)
+		h.renderError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
@@ -240,7 +261,7 @@ func (h *Handler) ProcessApproval(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Re-read to get updated state
-	approval = h.store.Get(id)
+	approval, _ = h.store.Get(r.Context(), id)
 	h.renderResolved(w, approval)
 }
 

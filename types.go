@@ -1,6 +1,16 @@
 package gate
 
-import "time"
+import (
+	"errors"
+	"time"
+
+	"github.com/benaskins/axon"
+)
+
+var (
+	ErrNotFound        = axon.ErrNotFound
+	ErrAlreadyResolved = errors.New("approval already resolved")
+)
 
 type ApprovalStatus string
 
