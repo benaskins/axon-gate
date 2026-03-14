@@ -17,8 +17,8 @@ func main() {
 	authClient := axon.NewAuthClient("http://localhost:9090")
 
 	handler := gate.NewHandler(store, signal, authClient,
-		"https://gate.studio.internal",
-		"https://auth.studio.internal/login",
+		"https://gate.example.com",
+		"https://auth.example.com/login",
 	)
 
 	mux := http.NewServeMux()
