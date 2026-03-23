@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// SignalClient sends notifications via the Signal REST API.
 type SignalClient struct {
 	httpClient *http.Client
 	apiURL     string

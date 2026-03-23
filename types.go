@@ -20,6 +20,7 @@ const (
 	StatusDenied   ApprovalStatus = "denied"
 )
 
+// Approval represents a deploy approval request with status tracking and expiry.
 type Approval struct {
 	ID         string         `json:"id"`
 	Service    string         `json:"service"`
@@ -36,6 +37,7 @@ type Approval struct {
 	ResolvedBy string         `json:"resolved_by,omitempty"`
 }
 
+// ApprovalRequest is the input for creating a new approval.
 type ApprovalRequest struct {
 	Service  string `json:"service"`
 	Commit   string `json:"commit"`

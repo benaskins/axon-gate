@@ -19,6 +19,7 @@ var templateFS embed.FS
 
 var templates = template.Must(template.ParseFS(templateFS, "templates/*.html"))
 
+// Handler serves the approval API endpoints and embedded web UI.
 type Handler struct {
 	store      ApprovalStore
 	signal     *SignalClient

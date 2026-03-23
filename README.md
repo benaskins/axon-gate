@@ -10,7 +10,7 @@ Deploy approval gate with Signal notifications. Creates time-limited approval re
 go get github.com/benaskins/axon-gate@latest
 ```
 
-Requires Go 1.24+.
+Requires Go 1.26+.
 
 axon-gate is a domain package — it provides HTTP handlers and domain types that you wire into your own composition root. See [`example/main.go`](example/main.go) for a minimal setup.
 
