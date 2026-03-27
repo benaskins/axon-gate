@@ -1,3 +1,8 @@
+---
+module: github.com/benaskins/axon-gate
+kind: service
+---
+
 # axon-gate
 
 Deploy approval gate with Signal notifications and a review UI.
@@ -20,9 +25,9 @@ Agents or CI pipelines create an approval via `POST /api/approvals`. The handler
 
 HTML templates in `templates/` are embedded via `//go:embed` and rendered server-side:
 
-- `templates/approve.html` — approval review page
-- `templates/resolved.html` — post-decision confirmation
-- `templates/error.html` — error display
+- `templates/approve.html` -- approval review page
+- `templates/resolved.html` -- post-decision confirmation
+- `templates/error.html` -- error display
 
 ## Build & Test
 
@@ -33,11 +38,11 @@ go vet ./...
 
 ## Key Files
 
-- `types.go` — Approval, ApprovalRequest, ApprovalStatus types
-- `store.go` — ApprovalStore interface (Create, Get, Resolve)
-- `handler.go` — HTTP handlers for approval workflow and embedded templates
-- `signal.go` — SignalClient for sending notifications via Signal REST API
-- `token.go` — secure token and ID generation
-- `doc.go` — package documentation
-- `gatetest/store.go` — MemoryApprovalStore for testing
-- `example/main.go` — minimal composition root example
+- `types.go` -- Approval, ApprovalRequest, ApprovalStatus types
+- `store.go` -- ApprovalStore interface (Create, Get, Resolve)
+- `handler.go` -- HTTP handlers for approval workflow and embedded templates
+- `signal.go` -- SignalClient for sending notifications via Signal REST API
+- `token.go` -- secure token and ID generation
+- `doc.go` -- package documentation
+- `gatetest/store.go` -- MemoryApprovalStore for testing
+- `example/main.go` -- minimal composition root example
