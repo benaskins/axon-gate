@@ -1,0 +1,10 @@
+name: axon-gate
+purpose: Deploy approval gate with Signal notifications
+use_when: Deploy gating
+deterministic: true
+snippet:
+  imports:
+    - path: github.com/benaskins/axon-gate
+      alias: gate
+  requires:
+    - github.com/benaskins/axon-gate
