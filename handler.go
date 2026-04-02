@@ -1,7 +1,6 @@
 package gate
 
 import (
-	"crypto/subtle"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/benaskins/axon"
+	rule "github.com/benaskins/axon-rule"
 )
 
 //go:embed all:templates
@@ -131,43 +131,8 @@ func (h *Handler) ShowApprovalPage(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	token := r.URL.Query().Get("token")
 
-	approval, err := h.store.Get(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			h.renderError(w, http.StatusNotFound, "Approval not found")
-			return
-		}
-		slog.Error("failed to get approval", "error", err, "id", id)
-		h.renderError(w, http.StatusInternalServerError, "Internal server error")
-		return
-	}
-
-	if subtle.ConstantTimeCompare([]byte(token), []byte(approval.Token)) != 1 {
-		h.renderError(w, http.StatusForbidden, "Invalid approval token")
-		return
-	}
-
-	if time.Now().After(approval.ExpiresAt) {
-		h.renderError(w, http.StatusGone, "Approval expired")
-		return
-	}
-
-	// Validate session — redirect to login if unauthenticated
-	session, err := h.validateSession(r)
-	if err != nil {
-		h.redirectToLogin(w, r)
-		return
-	}
-
-	// Owner check — match on username if available, otherwise any authenticated user can approve
-	username := session.Username()
-	if username != "" && approval.Username != "" && username != approval.Username {
-		h.renderError(w, http.StatusForbidden, "Only "+approval.Username+" can approve this deploy")
-		return
-	}
-
-	if approval.Status != StatusPending {
-		h.renderResolved(w, approval)
+	approval, _, ok := h.validateApproval(w, r, id, token)
+	if !ok {
 		return
 	}
 
@@ -194,41 +159,8 @@ func (h *Handler) ProcessApproval(w http.ResponseWriter, r *http.Request) {
 	token := r.FormValue("token")
 	action := r.FormValue("action")
 
-	approval, err := h.store.Get(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			h.renderError(w, http.StatusNotFound, "Approval not found")
-			return
-		}
-		slog.Error("failed to get approval", "error", err, "id", id)
-		h.renderError(w, http.StatusInternalServerError, "Internal server error")
-		return
-	}
-
-	if subtle.ConstantTimeCompare([]byte(token), []byte(approval.Token)) != 1 {
-		h.renderError(w, http.StatusForbidden, "Invalid approval token")
-		return
-	}
-
-	if time.Now().After(approval.ExpiresAt) {
-		h.renderError(w, http.StatusGone, "Approval expired")
-		return
-	}
-
-	session, err := h.validateSession(r)
-	if err != nil {
-		h.redirectToLogin(w, r)
-		return
-	}
-
-	username := session.Username()
-	if username != "" && approval.Username != "" && username != approval.Username {
-		h.renderError(w, http.StatusForbidden, "Only "+approval.Username+" can approve this deploy")
-		return
-	}
-
-	if approval.Status != StatusPending {
-		h.renderResolved(w, approval)
+	approval, username, ok := h.validateApproval(w, r, id, token)
+	if !ok {
 		return
 	}
 
@@ -264,6 +196,60 @@ func (h *Handler) ProcessApproval(w http.ResponseWriter, r *http.Request) {
 	// Re-read to get updated state
 	approval, _ = h.store.Get(r.Context(), id)
 	h.renderResolved(w, approval)
+}
+
+// validateApproval fetches the approval, checks token, expiry, session,
+// owner, and pending status. Returns the approval, session username, and
+// whether validation passed. Writes the HTTP response on failure.
+//
+// Token and expiry are checked before session validation so users with
+// bad links aren't forced to log in first.
+func (h *Handler) validateApproval(w http.ResponseWriter, r *http.Request, id, token string) (*Approval, string, bool) {
+	approval, err := h.store.Get(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			h.renderError(w, http.StatusNotFound, "Approval not found")
+			return nil, "", false
+		}
+		slog.Error("failed to get approval", "error", err, "id", id)
+		h.renderError(w, http.StatusInternalServerError, "Internal server error")
+		return nil, "", false
+	}
+
+	candidate := ResolutionCandidate{
+		Approval: *approval,
+		Token:    token,
+		Now:      time.Now(),
+	}
+
+	if !rule.New(ResolutionCandidate.TokenMatches).Check(candidate).OK {
+		h.renderError(w, http.StatusForbidden, "Invalid approval token")
+		return nil, "", false
+	}
+	if !rule.New(ResolutionCandidate.NotExpired).Check(candidate).OK {
+		h.renderError(w, http.StatusGone, "Approval expired")
+		return nil, "", false
+	}
+
+	session, err := h.validateSession(r)
+	if err != nil {
+		h.redirectToLogin(w, r)
+		return nil, "", false
+	}
+
+	username := session.Username()
+	candidate.Username = username
+	if !rule.New(ResolutionCandidate.OwnerMatches).Check(candidate).OK {
+		h.renderError(w, http.StatusForbidden, "Only "+approval.Username+" can approve this deploy")
+		return nil, "", false
+	}
+
+	if !rule.New(ResolutionCandidate.IsPending).Check(candidate).OK {
+		h.renderResolved(w, approval)
+		return nil, "", false
+	}
+
+	return approval, username, true
 }
 
 func (h *Handler) validateSession(r *http.Request) (*axon.SessionInfo, error) {
